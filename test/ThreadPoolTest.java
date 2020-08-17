@@ -1,4 +1,3 @@
-package test;
 
 /**
  * @Description:TODO
@@ -7,6 +6,6 @@ package test;
  */
 public class ThreadPoolTest {
     public static void main(String[] args) {
-
+        System.out.println("ssss");
     }
 }
