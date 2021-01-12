@@ -126,7 +126,7 @@ public class ArrayList<E> extends AbstractList<E>
      * distinguish this from EMPTY_ELEMENTDATA to know how much to inflate when
      * first element is added.
      */
-    //new ArrayList<>(),与EMPTY_ELEMENTDATA的区别是在添加第一个元素时使用这个空数组的会初始化为DEFAULT_CAPACITY（10）个元素
+    //new ArrayList<>(),与 EMPTY_ELEMENTDATA 的区别是在添加第一个元素时使用这个空数组的会初始化为DEFAULT_CAPACITY（10）个元素
     private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 
     /**
@@ -491,6 +491,7 @@ public class ArrayList<E> extends AbstractList<E>
         //修改次数+1，并且检查是否需要扩容
         ensureCapacityInternal(size + 1);  // Increments modCount!!
         //往后面挪位置，让元素插进来
+        //从原先的index+1（包括index+1）开始把之后的size-index个元素往后挪一位
         System.arraycopy(elementData, index, elementData, index + 1,
                          size - index);
         //插入元素

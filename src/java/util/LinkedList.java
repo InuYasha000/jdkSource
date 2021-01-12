@@ -152,11 +152,13 @@ public class LinkedList<E>
     //l.next=newNode
     void linkLast(E e) {
         final Node<E> l = last;
+        //在这里设置新增节点的前置节点是l
         final Node<E> newNode = new Node<>(l, e, null);
         last = newNode;
         if (l == null)
             first = newNode;
         else
+            //这里设置了l的后置节点是新节点
             l.next = newNode;
         size++;
         modCount++;
@@ -489,6 +491,7 @@ public class LinkedList<E>
      * @return the element at the specified position in this list
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    //随机获取，这个node方法就是做了小优化的那个方法
     public E get(int index) {
         checkElementIndex(index);
         return node(index).item;
@@ -580,6 +583,7 @@ public class LinkedList<E>
     /**
      * Returns the (non-null) Node at the specified element index.
      */
+    //这里有个小优化，寻找的时候，比较索引跟长度的关系来决定是从前往后还是从后往前
     Node<E> node(int index) {
         // assert isElementIndex(index);
 
