@@ -219,6 +219,7 @@ public class LinkedHashMap<K,V>
     // internal utilities
 
     // link at the end of list
+    //就是把新节点p加入到尾部，然后把尾结点tail移到新节点
     private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
         LinkedHashMap.Entry<K,V> last = tail;
         tail = p;
@@ -280,6 +281,7 @@ public class LinkedHashMap<K,V>
         return t;
     }
 
+    //把对应节点删掉
     void afterNodeRemoval(Node<K,V> e) { // unlink
         LinkedHashMap.Entry<K,V> p =
             (LinkedHashMap.Entry<K,V>)e, b = p.before, a = p.after;
@@ -302,6 +304,7 @@ public class LinkedHashMap<K,V>
         }
     }
 
+    //accessOrder是新建的时候传进来的，true代表你每次修改key的值，或者是get访问一下这个key，都会导致这个key挪动到链表的尾部去
     void afterNodeAccess(Node<K,V> e) { // move node to last
         LinkedHashMap.Entry<K,V> last;
         if (accessOrder && (last = tail) != e) {

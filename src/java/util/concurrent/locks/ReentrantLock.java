@@ -103,6 +103,8 @@ import java.util.Collection;
  * @since 1.5
  * @author Doug Lea
  */
+//Synchronizer
+//synchronized
 public class ReentrantLock implements Lock, java.io.Serializable {
     private static final long serialVersionUID = 7373984872572414699L;
     /** Synchronizer providing all implementation mechanics */
@@ -126,6 +128,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * Performs non-fair tryLock.  tryAcquire is implemented in
          * subclasses, but both need nonfair try for trylock method.
          */
+        //这里返回true代表的是加锁成功
         final boolean nonfairTryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
             int c = getState();
@@ -135,6 +138,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                     return true;
                 }
             }
+            //这里就是可重入
             else if (current == getExclusiveOwnerThread()) {
                 int nextc = c + acquires;
                 if (nextc < 0) // overflow
@@ -203,10 +207,12 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * acquire on failure.
          */
         final void lock() {
+            //CAS保证没人加锁也就是state是0，我才加锁
             if (compareAndSetState(0, 1))
+                //设置加锁线程为当前线程，表示自己是加锁的线程
                 setExclusiveOwnerThread(Thread.currentThread());
             else
-                acquire(1);
+                acquire(1);//这里是可重入加锁
         }
 
         protected final boolean tryAcquire(int acquires) {

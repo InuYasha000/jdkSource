@@ -156,6 +156,7 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 public class Semaphore implements java.io.Serializable {
     private static final long serialVersionUID = -3222578661600680210L;
     /** All mechanics via AbstractQueuedSynchronizer subclass */
+    //继承aqs，Semaphore的功能委托给这个sync
     private final Sync sync;
 
     /**
@@ -174,6 +175,7 @@ public class Semaphore implements java.io.Serializable {
             return getState();
         }
 
+        //非公平锁的acquire最终会调用到的方法
         final int nonfairTryAcquireShared(int acquires) {
             for (;;) {
                 int available = getState();
@@ -240,9 +242,10 @@ public class Semaphore implements java.io.Serializable {
             super(permits);
         }
 
+        //公平锁的acquire最终会调用到的方法
         protected int tryAcquireShared(int acquires) {
             for (;;) {
-                if (hasQueuedPredecessors())
+                if (hasQueuedPredecessors())//判断CLH队列是否有已经在等待线程存在
                     return -1;
                 int available = getState();
                 int remaining = available - acquires;

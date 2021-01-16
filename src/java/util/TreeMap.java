@@ -348,7 +348,7 @@ public class TreeMap<K,V>
         @SuppressWarnings("unchecked")
             Comparable<? super K> k = (Comparable<? super K>) key;
         Entry<K,V> p = root;
-        while (p != null) {
+        while (p != null) {//找左右子节点
             int cmp = k.compareTo(p.key);
             if (cmp < 0)
                 p = p.left;
@@ -555,7 +555,7 @@ public class TreeMap<K,V>
                 else if (cmp > 0)
                     t = t.right;
                 else
-                    return t.setValue(value);
+                    return t.setValue(value);//相等覆盖
             } while (t != null);
         }
         else {
@@ -575,10 +575,12 @@ public class TreeMap<K,V>
             } while (t != null);
         }
         Entry<K,V> e = new Entry<>(key, value, parent);
+        //前面其实是在找位置，在这里设置，然后在下面平衡
         if (cmp < 0)
             parent.left = e;
         else
             parent.right = e;
+        //在这里平衡红黑树
         fixAfterInsertion(e);
         size++;
         modCount++;

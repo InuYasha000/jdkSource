@@ -662,6 +662,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
         //(n - 1) & hash 运算结果和取模 (n - 1) 没有区别，但是性能会很高（前提是n是2的n次方幂）
         //n-1末尾都是1，&运算最大程度保留hash原来的数字，这样减少hash碰撞
         if ((p = tab[i = (n - 1) & hash]) == null)
+            //在这里LinkedHashMap重载了这个方法，LinkedHashmap做的事情很简单，就是在自身的链表中加入新节点
             tab[i] = newNode(hash, key, value, null);//直接插入
         else {//这里就是hash冲突了，包括两种，一种是key相同，另一种是key不同
             Node<K,V> e; K k;
