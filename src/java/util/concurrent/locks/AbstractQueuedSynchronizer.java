@@ -676,6 +676,7 @@ public abstract class AbstractQueuedSynchronizer
                 if (t.waitStatus <= 0)
                     s = t;
         }
+        //唤醒处于队头的元素
         if (s != null)
             LockSupport.unpark(s.thread);
     }
@@ -860,6 +861,7 @@ public abstract class AbstractQueuedSynchronizer
         // 必须得有另外一个线程来对当前线程执行unpark操作，唤醒挂起的线程
         // 在这里就卡住了
         LockSupport.park(this);
+        //返回它是否被中断
         return Thread.interrupted();
     }
 
@@ -893,11 +895,15 @@ public abstract class AbstractQueuedSynchronizer
                 //当前线程的前驱节点是头结点，且获取锁成功？？？
                 //这里的意思就是当前节点的前面那个节点出队列了，那么此时自己？？？
                 //就应该变成头部节点？？？
+                //关于头结点其实是一个空节点，就是一个头的象征，没有任何实际Node
+
+                //在之后线程被唤醒后，此时p==head成立，会再次尝试获取锁
                 if (p == head && tryAcquire(arg)) {
                     //设置当前节点为头结点
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
+                    //返回也没有被中断
                     return interrupted;
                 }
                 //获取失败，线程等待
@@ -1145,7 +1151,7 @@ public abstract class AbstractQueuedSynchronizer
      *         correctly.
      * @throws UnsupportedOperationException if exclusive mode is not supported
      */
-    //独占式释放同步状态，等待获取同步状态的线程有机会会获取同步状态
+    //独占式释放锁，等待获取同步状态的线程有机会会获取同步状态
     protected boolean tryRelease(int arg) {
         throw new UnsupportedOperationException();
     }
@@ -1256,6 +1262,7 @@ public abstract class AbstractQueuedSynchronizer
         if (!tryAcquire(arg) &&
             //addWaiter(Node.EXCLUSIVE)将当前线程入队等待
             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
+            //走到这里其实代表拿到锁了，停止等待并且拿到锁了，并且返回了acquireQueued方法返回了true
             selfInterrupt();
     }
 
@@ -1323,6 +1330,7 @@ public abstract class AbstractQueuedSynchronizer
         if (tryRelease(arg)) {
             Node h = head;
             if (h != null && h.waitStatus != 0)
+                //尝试唤醒队头元素
                 unparkSuccessor(h);
             return true;
         }
