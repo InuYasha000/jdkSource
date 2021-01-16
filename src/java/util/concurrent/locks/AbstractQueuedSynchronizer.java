@@ -958,9 +958,11 @@ public abstract class AbstractQueuedSynchronizer
         if (nanosTimeout <= 0L)
             return false;
         final long deadline = System.nanoTime() + nanosTimeout;
+        //把节点加到队列里面去，独占式
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
+            //这里类似tryAcquire
             for (;;) {
                 final Node p = node.predecessor();
                 if (p == head && tryAcquire(arg)) {
@@ -973,7 +975,8 @@ public abstract class AbstractQueuedSynchronizer
                 if (nanosTimeout <= 0L)
                     return false;
                 if (shouldParkAfterFailedAcquire(p, node) &&
-                    nanosTimeout > spinForTimeoutThreshold)
+                    nanosTimeout > spinForTimeoutThreshold)//nanosTimeout > spinForTimeoutThreshold 可以理解成小优化，如果还剩余的时间不超过这个就没有必要挂起了，直接过，因为可以挂起的时间太小了
+                    //让当前线程先放到队列，然后挂起这么长时间
                     LockSupport.parkNanos(this, nanosTimeout);
                 if (Thread.interrupted())
                     throw new InterruptedException();
@@ -1296,7 +1299,7 @@ public abstract class AbstractQueuedSynchronizer
      * @return {@code true} if acquired; {@code false} if timed out
      * @throws InterruptedException if the current thread is interrupted
      */
-    //在 acquirelnteruptibly（int arg）基础上增加了超时限制，如果当前线程在超时时间内没有获取到同步状态，那么将会返回false，如果获取到了返回true
+    //在 acquirelnteruptibly（int arg）基础上增加了超时限制，如果当前线程在超时时间内没有获取到锁，那么将会返回false，如果获取到了返回true
     public final boolean tryAcquireNanos(int arg, long nanosTimeout)
             throws InterruptedException {
         if (Thread.interrupted())
@@ -1579,6 +1582,8 @@ public abstract class AbstractQueuedSynchronizer
         Node t = tail; // Read fields in reverse initialization order
         Node h = head;
         Node s;
+        // h!=t 表示队列里面有人在排队，
+        // h.next==null 表示没人在排队或者排在对头节点的next节点不是当前线程
         return h != t &&
             ((s = h.next) == null || s.thread != Thread.currentThread());
     }
