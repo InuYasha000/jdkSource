@@ -160,6 +160,7 @@ class Thread implements Runnable {
     private boolean     stillborn = false;
 
     /* What will be run. */
+    //这里就是我们覆盖的runnable方法，在下面可以看到不为null，也就是我们自定义了就不会去执行
     private Runnable target;
 
     /* The group of this thread */
@@ -279,6 +280,7 @@ class Thread implements Runnable {
      * concurrency control constructs such as the ones in the
      * {@link java.util.concurrent.locks} package.
      */
+    //一般用来复现锁争用的bug
     public static native void yield();
 
     /**
@@ -371,8 +373,10 @@ class Thread implements Runnable {
 
         this.name = name;
 
+        //创建你的线程（比如在main中创建就是main线程）
         Thread parent = currentThread();
         SecurityManager security = System.getSecurityManager();
+        //threadGroup一般不指定，
         if (g == null) {
             /* Determine if it's an applet or not */
 
@@ -385,6 +389,7 @@ class Thread implements Runnable {
             /* If the security doesn't have a strong opinion of the matter
                use the parent thread group. */
             if (g == null) {
+                //在这里就看到线程默认的线程组就是父线程的线程组
                 g = parent.getThreadGroup();
             }
         }
@@ -405,7 +410,9 @@ class Thread implements Runnable {
         g.addUnstarted();
 
         this.group = g;
+        //你是不是后台线程也是由父线程决定的
         this.daemon = parent.isDaemon();
+        //优先级也是跟父线程保持一致
         this.priority = parent.getPriority();
         if (security == null || isCCLOverridden(parent.getClass()))
             this.contextClassLoader = parent.getContextClassLoader();
@@ -422,6 +429,7 @@ class Thread implements Runnable {
         this.stackSize = stackSize;
 
         /* Set thread ID */
+        //synchronized保证1,2,3,4。。。
         tid = nextThreadID();
     }
 
@@ -469,6 +477,7 @@ class Thread implements Runnable {
      * This is not a public constructor.
      */
     Thread(Runnable target, AccessControlContext acc) {
+        //这里有个synchronized的锁保证thread-0,1,2,3,4......
         init(null, target, "Thread-" + nextThreadNum(), 0, acc, false);
     }
 
@@ -704,6 +713,7 @@ class Thread implements Runnable {
          *
          * A zero status value corresponds to state "NEW".
          */
+        //不能多次start同一个
         if (threadStatus != 0)
             throw new IllegalThreadStateException();
 
@@ -714,6 +724,7 @@ class Thread implements Runnable {
 
         boolean started = false;
         try {
+            //这里就是去执行我们覆盖的run方法，或者传进去的runnable方法
             start0();
             started = true;
         } finally {
