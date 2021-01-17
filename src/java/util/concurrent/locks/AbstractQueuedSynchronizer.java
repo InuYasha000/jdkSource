@@ -597,7 +597,7 @@ public abstract class AbstractQueuedSynchronizer
         for (;;) {
             Node t = tail;
             if (t == null) { // Must initialize
-                //队列为空
+                //队列为空，在这里可以看出来head就是空的，就是意义象征
                 if (compareAndSetHead(new Node()))
                     tail = head;
             } else {
@@ -660,7 +660,7 @@ public abstract class AbstractQueuedSynchronizer
          * fails or if status is changed by waiting thread.
          */
         int ws = node.waitStatus;
-        if (ws < 0)
+        if (ws < 0)//设置为0
             compareAndSetWaitStatus(node, ws, 0);
 
         /*
@@ -676,7 +676,7 @@ public abstract class AbstractQueuedSynchronizer
                 if (t.waitStatus <= 0)
                     s = t;
         }
-        //唤醒处于队头的元素
+        //唤醒处于队头后面的元素
         if (s != null)
             LockSupport.unpark(s.thread);
     }
@@ -1257,6 +1257,8 @@ public abstract class AbstractQueuedSynchronizer
 
     //独占锁的意思就是同一时间只能有一个线程占用锁
     //独占式设置同步状态，如果当前线程设置同步状态（state）成功，则由该方法返回，否则，将会进入同步队列等待，该方法将会调用重写的tryAcquire（int arg）方法,默认是 NonfairSync
+
+    //这个方法里面只有tryAcquire是虚方法，被各自子类继承实现，逻辑后面的都是一样，进入队列然后阻塞
     public final void acquire(int arg) {
         //tryAcquire(args) 返回true代表加锁成功，返回false才会继续走判断逻辑，&& 操作符，左边不走右边并不会走
         if (!tryAcquire(arg) &&
@@ -1325,9 +1327,10 @@ public abstract class AbstractQueuedSynchronizer
      *        can represent anything you like.
      * @return the value returned from {@link #tryRelease}
      */
-    //独占式的释放同步状态，该方法会在释放同步状态之后，将同步队列中第一个节点包含的线程唤醒
+    //释放锁
+    //tryRelease这个方法被各个类重载
     public final boolean release(int arg) {
-        if (tryRelease(arg)) {
+        if (tryRelease(arg)) {//只有可重入的锁全部释放了才会返回true，才能走下面逻辑
             Node h = head;
             if (h != null && h.waitStatus != 0)
                 //尝试唤醒队头元素
@@ -1348,7 +1351,7 @@ public abstract class AbstractQueuedSynchronizer
      *        {@link #tryAcquireShared} but is otherwise uninterpreted
      *        and can represent anything you like.
      */
-    //共享式的获取同步状态，如果当前线程未获取到同步状态，将会进入同步队列等待，与独占式获取的主要区别是在同一时刻可以有多个线程获取到同步状态
+    //共享式的获取锁，如果当前线程未获取到同步状态，将会进入同步队列等待，与独占式获取的主要区别是在同一时刻可以有多个线程获取到同步状态
     public final void acquireShared(int arg) {
         if (tryAcquireShared(arg) < 0)
             doAcquireShared(arg);
@@ -1757,6 +1760,7 @@ public abstract class AbstractQueuedSynchronizer
          * attempt to set waitStatus fails, wake up to resync (in which
          * case the waitStatus can be transiently and harmlessly wrong).
          */
+        //加到Node等待队列尾部
         Node p = enq(node);
         int ws = p.waitStatus;
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
@@ -1946,9 +1950,13 @@ public abstract class AbstractQueuedSynchronizer
          */
         private void doSignal(Node first) {
             do {
+                //这里隐含了
+                // firstWaiter = first.nextWaiter
+                // first = firstWaiter
                 if ( (firstWaiter = first.nextWaiter) == null)
                     lastWaiter = null;
                 first.nextWaiter = null;
+                //transferForSignal（）从condition等待队列扔到Node等待队列
             } while (!transferForSignal(first) &&
                      (first = firstWaiter) != null);
         }
@@ -2113,6 +2121,7 @@ public abstract class AbstractQueuedSynchronizer
             int savedState = fullyRelease(node);
             int interruptMode = 0;
             while (!isOnSyncQueue(node)) {
+                //在这里挂起
                 LockSupport.park(this);
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;

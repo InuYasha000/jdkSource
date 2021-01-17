@@ -265,9 +265,9 @@ public class ReentrantReadWriteLock
         static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 
         /** Returns the number of shared holds represented in count  */
-        static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }//读状态
+        static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }//读锁值
         /** Returns the number of exclusive holds represented in count  */
-        static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }//写状态
+        static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }//写锁值
 
         /**
          * A counter for per-thread read hold counts.
@@ -372,9 +372,11 @@ public class ReentrantReadWriteLock
          * @return
          */
         protected final boolean tryRelease(int releases) {
+            //是否是当前线程持有锁
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
             int nextc = getState() - releases;
+            //写锁值,考虑到可重入
             boolean free = exclusiveCount(nextc) == 0;
             if (free)
                 setExclusiveOwnerThread(null);
@@ -383,12 +385,10 @@ public class ReentrantReadWriteLock
         }
 
         /**
-         * 写锁获取
+         * 进行加写锁
          * 当前存在读锁，不能获取写锁
-         * 存在写锁并且不是当前线程，不能获取锁
-         * 超过@{link MAX_COUNT}65535 不能获取锁
-         * @param acquires
-         * @return
+         * 存在写锁并且不是当前线程，不能获取写锁
+         * 超过@{link MAX_COUNT}65535 不能获取写锁
          */
         protected final boolean tryAcquire(int acquires) {
             /*
@@ -403,21 +403,28 @@ public class ReentrantReadWriteLock
              *    and set owner.
              */
             Thread current = Thread.currentThread();
+            //c是32位数字
             int c = getState();
+            //返回写锁状态,w是低16位，c的值由读和写共同决定
+            // w -- write ， r -- read
             int w = exclusiveCount(c);
-            if (c != 0) {
+            if (c != 0) {//表示有锁
                 // (Note: if c != 0 and w == 0 then shared count != 0)
-                //没有写锁但有读锁存在或者当前有写锁并且锁线程不是当前线程
+                //没有写锁但有读锁存在  或者  当前有写锁并且锁线程不是当前线程
                 if (w == 0 || current != getExclusiveOwnerThread())
                     return false;
+                //超过加锁最大值，这里就是可重入的加写锁
                 if (w + exclusiveCount(acquires) > MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");
                 // Reentrant acquire
+                //可重入加写锁
                 setState(c + acquires);
                 return true;
             }
+            // writerShouldBlock 方法跟非公平锁和公平锁相关，非公平锁默认返回false，公平锁根据是否有人等待开判断这里写锁是否需要等待
+            //在这里非公平锁就一定会执行 || 后面的逻辑判断
             if (writerShouldBlock() ||
-                !compareAndSetState(c, c + acquires))
+                !compareAndSetState(c, c + acquires))//CAS设置失败就返回下面的false，否则不会走下面逻辑
                 return false;
             setExclusiveOwnerThread(current);
             return true;
@@ -443,6 +450,7 @@ public class ReentrantReadWriteLock
                 }
                 --rh.count;
             }
+            //释放读锁
             for (;;) {
                 int c = getState();
                 int nextc = c - SHARED_UNIT;
@@ -459,6 +467,7 @@ public class ReentrantReadWriteLock
                 "attempt to unlock read lock, not locked by current thread");
         }
 
+        //读锁获取
         protected final int tryAcquireShared(int unused) {
             /*
              * Walkthrough:
@@ -481,6 +490,7 @@ public class ReentrantReadWriteLock
             if (exclusiveCount(c) != 0 &&
                 getExclusiveOwnerThread() != current)
                 return -1;
+            //读锁值
             int r = sharedCount(c);
             if (!readerShouldBlock() &&
                 r < MAX_COUNT &&
@@ -517,6 +527,7 @@ public class ReentrantReadWriteLock
             HoldCounter rh = null;
             for (;;) {
                 int c = getState();
+                //写锁
                 if (exclusiveCount(c) != 0) {
                     if (getExclusiveOwnerThread() != current)
                         return -1;
