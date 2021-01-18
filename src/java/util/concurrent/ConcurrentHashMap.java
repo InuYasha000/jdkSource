@@ -522,12 +522,14 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * The largest possible (non-power of two) array size.
      * Needed by toArray and related methods.
      */
+    //减8是因为部分虚拟机会在数组里面加8个字节的头部
     static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
     /**
      * The default concurrency level for this table. Unused but
      * defined for compatibility with previous versions of this class.
      */
+    //向之前版本兼容的参数，现在不用
     private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
     /**
@@ -694,6 +696,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * never be used in index calculations because of table bounds.
      */
     static final int spread(int h) {
+        //把hash值的高低16位都考虑到hash取模，有益于尽可能打散各个key
         return (h ^ (h >>> 16)) & HASH_BITS;
     }
 
@@ -812,7 +815,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     //-1代表正在初始化
     //-N 表示有N-1个线程正在进行扩容操作
     //0代表hash表还没有被初始化，
-    //正数表示这个数值表示初始化或下一次进行扩容的大小
+    //正数表示这个数值表示初始化或下一次进行扩容的大小(扩容阈值，也就是0.75倍大小)
     private transient volatile int sizeCtl;
 
     /**
@@ -841,6 +844,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     /**
      * Creates a new, empty map with the default initial table size (16).
      */
+    //默认初始化大小16
     public ConcurrentHashMap() {
     }
 
@@ -955,9 +959,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     //1-->计算hash值
     //2-->判断table是否为空，如果为空，直接返回null
     //3-->根据hash值获取table中的Node节点（tabAt(tab, (n - 1) & h)），然后根据链表或者树形方式找到相对应的节点，返回其value值。
+    //注意 tabAt 是 volatile 读
+
+    //读取是没有涉及到锁的
     public V get(Object key) {
         Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
         int h = spread(key.hashCode());
+        //tab不为null，tab不为空（长度大于0），定位到对应位置上的节点不为null
         if ((tab = table) != null && (n = tab.length) > 0 &&
             (e = tabAt(tab, (n - 1) & h)) != null) {
             if ((eh = e.hash) == h) {
@@ -965,7 +973,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                     return e.val;
             }
             else if (eh < 0)
-                return (p = e.find(h, key)) != null ? p.val : null;
+                return (p = e.find(h, key)) != null ? p.val : null;//对链表和红黑树二分查找
             while ((e = e.next) != null) {
                 if (e.hash == h &&
                     ((ek = e.key) == key || (ek != null && key.equals(ek))))
@@ -1038,13 +1046,16 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         //计算hash值
         int hash = spread(key.hashCode());
         int binCount = 0;
+        //自旋
         for (Node<K,V>[] tab = table;;) {
             Node<K,V> f; int n, i, fh;
             // table为null，进行初始化工作
             if (tab == null || (n = tab.length) == 0)
                 tab = initTable();
             //如果i位置没有节点，则直接插入，不需要加锁，cas设置
-            else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {//hash定位
+                //设置值，基于CAS操作，多线程过来并发执行，都走到这里，只会有一个CAS执行成功，然后break返回
+                //CAS成功，break掉，失败的话走下一轮循环
                 if (casTabAt(tab, i, null,
                              new Node<K,V>(hash, key, value, null)))
                     break;                   // no lock when adding to empty bin
@@ -1054,18 +1065,19 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                 tab = helpTransfer(tab, f);
             else {
                 V oldVal = null;
+                //f是数组当前的元素
                 synchronized (f) {//对该节点进行加锁处理（hash值相同的链表的头节点），对性能有点儿影响
                     if (tabAt(tab, i) == f) {
                         if (fh >= 0) {//fh > 0 表示为链表，将该节点插入到链表尾部
                             binCount = 1;
                             for (Node<K,V> e = f;; ++binCount) {
                                 K ek;
-                                //hash 和 key 都一样，替换value
+                                //hash 和 key 都一样，替换value，就是普通的覆盖操作
                                 if (e.hash == hash &&
                                     ((ek = e.key) == key ||
                                      (ek != null && key.equals(ek)))) {
                                     oldVal = e.val;
-                                    if (!onlyIfAbsent)
+                                    if (!onlyIfAbsent)//不存在才替换的标识
                                         e.val = value;
                                     break;
                                 }
@@ -1091,7 +1103,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                         }
                     }
                 }
-                //注意binCount，这个值是用来判断链表和红黑树转换的阙值的，在红黑树中设置成了2，在链表中会随着聊表长度+1
+                //注意binCount，这个值是用来判断链表和红黑树转换的阙值的，在红黑树中设置成了2，在链表中会随着链表长度+1
                 if (binCount != 0) {
                     if (binCount >= TREEIFY_THRESHOLD)
                         treeifyBin(tab, i);
@@ -2271,6 +2283,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
                         @SuppressWarnings("unchecked")
                         Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                        //tab = nt;
+                        //table = tab;
                         table = tab = nt;
                         // 下次扩容的大小，相当于0.75*n 设置一个扩容的阈值
                         sc = n - (n >>> 2);

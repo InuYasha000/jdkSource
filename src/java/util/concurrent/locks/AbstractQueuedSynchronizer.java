@@ -669,6 +669,7 @@ public abstract class AbstractQueuedSynchronizer
          * traverse backwards from tail to find the actual
          * non-cancelled successor.
          */
+        //Node s就是被挂起的线程
         Node s = node.next;
         if (s == null || s.waitStatus > 0) {
             s = null;

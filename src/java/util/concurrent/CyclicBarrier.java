@@ -244,6 +244,7 @@ public class CyclicBarrier {
             for (;;) {
                 try {
                     if (!timed)
+                        //这里会释放锁
                         trip.await();
                     else if (nanos > 0L)
                         nanos = trip.awaitNanos(nanos);
@@ -262,6 +263,7 @@ public class CyclicBarrier {
                 if (g.broken)
                     throw new BrokenBarrierException();
 
+                //在这里就是被唤醒了，因为所有线程都调用await后，此时generation已经变化了
                 if (g != generation)
                     return index;
 

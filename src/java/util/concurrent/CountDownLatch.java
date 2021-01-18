@@ -170,9 +170,11 @@ public class CountDownLatch {
         }
 
         protected int tryAcquireShared(int acquires) {
+            //在这里可以看到第二次await时，因为state==0，因此await方法是无法像上次生效的
             return (getState() == 0) ? 1 : -1;
         }
 
+        // releases 变量没有使用，下面就是单独减1，毕竟countdown方法都是一个一个调用的
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
