@@ -134,33 +134,45 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     }
 
     /** The capacity bound, or Integer.MAX_VALUE if none */
+    // 容量
     private final int capacity;
 
     /** Current number of elements */
+    // 元素数量
     private final AtomicInteger count = new AtomicInteger();
 
     /**
      * Head of linked list.
      * Invariant: head.item == null
      */
+    // 链表头
     transient Node<E> head;
 
     /**
      * Tail of linked list.
      * Invariant: last.next == null
      */
+    // 链表尾
     private transient Node<E> last;
 
     /** Lock held by take, poll, etc */
+    // take锁
     private final ReentrantLock takeLock = new ReentrantLock();
 
     /** Wait queue for waiting takes */
+    //不让空，调用它的await表示空了，调用它的signal表示这个时候有值了
+    // notEmpty条件
+    // 当队列无元素时，take锁会阻塞在notEmpty条件上，等待其它线程唤醒
     private final Condition notEmpty = takeLock.newCondition();
 
     /** Lock held by put, offer, etc */
+    // 放锁
     private final ReentrantLock putLock = new ReentrantLock();
 
     /** Wait queue for waiting puts */
+    //不让满，调用它的await表示满了，调用它的signal表示现在队列有空间了
+    // notFull条件
+    // 当队列满了时，put锁会会阻塞在notFull上，等待其它线程唤醒
     private final Condition notFull = putLock.newCondition();
 
     /**
@@ -198,6 +210,8 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     private void enqueue(Node<E> node) {
         // assert putLock.isHeldByCurrentThread();
         // assert last.next == null;
+        //last.next = node
+        //last = last
         last = last.next = node;
     }
 
@@ -209,6 +223,11 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     private E dequeue() {
         // assert takeLock.isHeldByCurrentThread();
         // assert head.item == null;
+        /**
+         * head节点本身是不存储任何元素的
+         * 这里把head删除，并把head下一个节点作为新的值
+         * 并把其值置空，返回原来的值
+         */
         Node<E> h = head;
         Node<E> first = h.next;
         h.next = h; // help GC
@@ -247,6 +266,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * {@link Integer#MAX_VALUE}.
      */
     public LinkedBlockingQueue() {
+        // 如果没传容量，就使用最大int值初始化其容量
         this(Integer.MAX_VALUE);
     }
 
@@ -260,6 +280,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
     public LinkedBlockingQueue(int capacity) {
         if (capacity <= 0) throw new IllegalArgumentException();
         this.capacity = capacity;
+        // 初始化head和last指针为空值节点
         last = head = new Node<E>(null);
     }
 
@@ -329,10 +350,12 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException {@inheritDoc}
      */
     public void put(E e) throws InterruptedException {
+        // 不允许null元素
         if (e == null) throw new NullPointerException();
         // Note: convention in all put/take/etc is to preset local var
         // holding count negative to indicate failure unless set.
         int c = -1;
+        // 新建一个节点
         Node<E> node = new Node<E>(e);
         final ReentrantLock putLock = this.putLock;
         final AtomicInteger count = this.count;
@@ -346,16 +369,35 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
              * signalled if it ever changes from capacity. Similarly
              * for all other uses of count in other wait guards.
              */
+            // 如果队列满了，就阻塞在notFull条件上
+            // 等待被其它线程唤醒
             while (count.get() == capacity) {
+                //满了
                 notFull.await();
             }
+            // 队列不满了，就入队
             enqueue(node);
+            // 队列长度加1
             c = count.getAndIncrement();
+            /**
+             * 如果现队列长度（c+1）如果小于容量
+             * 就再唤醒一个阻塞在notFull条件上的线程
+             * 这里为啥要唤醒一下呢？
+             * 因为可能有很多线程阻塞在notFull这个条件上的
+             * 而取元素时只有取之前队列是满的才会唤醒notFull
+             * 为什么队列满的才唤醒notFull呢？
+             * 因为唤醒是需要加putLock的，这是为了减少锁的次数
+             * 所以，这里索性在放完元素就检测一下，未满就唤醒其它notFull上的线程
+             * 说白了，这也是锁分离带来的代价
+             */
             if (c + 1 < capacity)
+                //还有空间
                 notFull.signal();
         } finally {
             putLock.unlock();
         }
+        // 如果原队列长度为0，现在加了一个元素后立即唤醒notEmpty条件
+        // 也就是队列有值了，此时take操作不用阻塞
         if (c == 0)
             signalNotEmpty();
     }
@@ -436,18 +478,26 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         int c = -1;
         final AtomicInteger count = this.count;
         final ReentrantLock takeLock = this.takeLock;
+        // 使用takeLock加锁
         takeLock.lockInterruptibly();
         try {
+            // 如果队列无元素，则阻塞在notEmpty条件上
             while (count.get() == 0) {
                 notEmpty.await();
             }
+            // 否则，出队
             x = dequeue();
+            // 获取出队前队列的长度
             c = count.getAndDecrement();
+            // 如果取之前队列长度大于1，则唤醒notEmpty
+            // notEmpty 是阻塞take锁的，这里跟put方法里面是类似的道理，详见put里面解释
             if (c > 1)
                 notEmpty.signal();
         } finally {
             takeLock.unlock();
         }
+        // 如果取之前队列长度等于容量，也就是此次take之后不满了
+        // 则唤醒notFull，也就是唤醒put操作
         if (c == capacity)
             signalNotFull();
         return x;
