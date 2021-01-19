@@ -413,9 +413,12 @@ public class CopyOnWriteArrayList<E>
             Object[] elements = getArray();
             E oldValue = get(elements, index);
 
+            //对应index上是否相同
             if (oldValue != element) {
                 int len = elements.length;
+                //复制到新数组
                 Object[] newElements = Arrays.copyOf(elements, len);
+                //新数组对应index上赋值
                 newElements[index] = element;
                 setArray(newElements);
             } else {
@@ -440,7 +443,9 @@ public class CopyOnWriteArrayList<E>
         try {
             Object[] elements = getArray();
             int len = elements.length;
+            //使用新数据，并且长度+1
             Object[] newElements = Arrays.copyOf(elements, len + 1);
+            //新数组最后一位设置为新元素
             newElements[len] = e;
             setArray(newElements);
             return true;
@@ -497,11 +502,20 @@ public class CopyOnWriteArrayList<E>
             int len = elements.length;
             E oldValue = get(elements, index);
             int numMoved = len - index - 1;
+            //此时删除的是最后一个元素
             if (numMoved == 0)
+                //老数组截取最后一位
                 setArray(Arrays.copyOf(elements, len - 1));
             else {
                 Object[] newElements = new Object[len - 1];
+                //这两行代码示例，此时删除老数组倒数第二个元素，
+                //第一行代码：从0开始一直拷贝到倒数第二个元素，但不包括倒数第二个元素，拷贝到新数组
+                //第二行代码：从倒数第二个元素位置+1 开始拷贝（也就是把最后一个元素拷贝），拷贝到新数组倒数第二个位置（这里其实是倒数第一位置），然后拷贝的元素个数是1
+
+                //这两个复制就是没有把index位上的别的所有数都拷贝过去
+                //拷贝0到index，不包括index
                 System.arraycopy(elements, 0, newElements, 0, index);
+                //从老数组index+1（包括index+1）拷贝(后面所有的元素都拷贝)，放到新数组index开始的位置，放numMoved个元素
                 System.arraycopy(elements, index + 1, newElements, index,
                                  numMoved);
                 setArray(newElements);
@@ -1133,6 +1147,7 @@ public class CopyOnWriteArrayList<E>
 
     static final class COWIterator<E> implements ListIterator<E> {
         /** Snapshot of the array */
+        //迭代的时候是操作的这个快照，因此其他线程的操作跟当前迭代没有任何影响
         private final Object[] snapshot;
         /** Index of element to be returned by subsequent call to next.  */
         private int cursor;

@@ -200,6 +200,7 @@ public class ThreadLocal<T> {
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
         if (map != null)
+            //this就是key
             map.set(this, value);
         else
             createMap(t, value);
