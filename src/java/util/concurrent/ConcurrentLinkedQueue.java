@@ -117,6 +117,7 @@ import java.util.function.Consumer;
  * 队列中的最后一个元素可以从tail通过succ方法遍历到
  * tail甚至可以是head的前驱
  */
+//无界队列
 public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         implements Queue<E>, java.io.Serializable {
     private static final long serialVersionUID = 196745693267521676L;
