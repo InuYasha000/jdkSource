@@ -595,14 +595,18 @@ public class SynchronousQueue<E> extends AbstractQueue<E>
         }
 
         /** Head of queue */
+        /** 头节点 */
         transient volatile QNode head;
         /** Tail of queue */
+        /** 尾节点 */
         transient volatile QNode tail;
         /**
          * Reference to a cancelled node that might not yet have been
          * unlinked from queue because it was the last inserted node
          * when it was cancelled.
          */
+        // 指向一个取消的结点
+        // 当一个节点中最后一个插入时，它被取消了但是可能还没有离开队列
         transient volatile QNode cleanMe;
 
         TransferQueue() {
