@@ -104,6 +104,7 @@ import sun.misc.SharedSecrets;
  * @since   1.2
  */
 
+//实现RandomAccess接口是为了标记
 public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 {
@@ -112,7 +113,7 @@ public class ArrayList<E> extends AbstractList<E>
     /**
      * Default initial capacity.
      */
-    //默认容量111
+    //默认初始化容量
     private static final int DEFAULT_CAPACITY = 10;
 
     /**
@@ -125,8 +126,19 @@ public class ArrayList<E> extends AbstractList<E>
      * Shared empty array instance used for default sized empty instances. We
      * distinguish this from EMPTY_ELEMENTDATA to know how much to inflate when
      * first element is added.
+     *
+     * 共享的空数组对象，用于 {@link #ArrayList()} 构造方法。
+     * 通过使用该静态变量，和 {@link #EMPTY_ELEMENTDATA} 区分开来，在第一次添加元素时。
      */
     //new ArrayList<>(),与 EMPTY_ELEMENTDATA 的区别是在添加第一个元素时使用这个空数组的会初始化为DEFAULT_CAPACITY（10）个元素
+    //在我们学习 ArrayList 的时候，一直被灌输了一个概念，在未设置初始化容量时，ArrayList 默认大小为 10 。但是此处，
+    //我们可以看到初始化为 DEFAULTCAPACITY_EMPTY_ELEMENTDATA 这个空数组。这是为什么呢？
+    //ArrayList 考虑到节省内存，一些使用场景下仅仅是创建了 ArrayList 对象，实际并未使用。
+    //所以，ArrayList 优化成初始化是个空数组，在首次添加元素时，才真正初始化为容量为 10 的数组。
+
+    // 那么为什么单独声明了 DEFAULTCAPACITY_EMPTY_ELEMENTDATA 空数组，而不直接使用 EMPTY_ELEMENTDATA 呢？
+    // 在下文中，我们会看到 DEFAULTCAPACITY_EMPTY_ELEMENTDATA 首次扩容为 10 ，
+    // 而 EMPTY_ELEMENTDATA 按照 1.5 倍扩容从 0 开始而不是 10 。😈 两者的起点不同
     private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 
     /**
@@ -185,6 +197,7 @@ public class ArrayList<E> extends AbstractList<E>
         elementData = c.toArray();
         if ((size = elementData.length) != 0) {
             // c.toArray might (incorrectly) not return Object[] (see 6260652)
+            // 用于解决 JDK-6260652 的 Bug 。它在 JDK9 中被解决，😈 也就是说，JDK8 还会存在该问题
             if (elementData.getClass() != Object[].class)
                 elementData = Arrays.copyOf(elementData, size, Object[].class);
         } else {
@@ -200,10 +213,11 @@ public class ArrayList<E> extends AbstractList<E>
      */
     public void trimToSize() {
         modCount++;
+        // 如果有多余的空间，则进行缩容
         if (size < elementData.length) {
             elementData = (size == 0)
-              ? EMPTY_ELEMENTDATA
-              : Arrays.copyOf(elementData, size);
+              ? EMPTY_ELEMENTDATA// 大小为 0 时，直接使用 EMPTY_ELEMENTDATA
+              : Arrays.copyOf(elementData, size);// 大小大于 0 ，则创建大小为 size 的新数组，将原数组复制到其中
         }
     }
 
@@ -222,13 +236,14 @@ public class ArrayList<E> extends AbstractList<E>
             // supposed to be at default size.
             : DEFAULT_CAPACITY;
 
+        //这里就是两个空数组的区别，是 DEFAULTCAPACITY_EMPTY_ELEMENTDATA 就从10开始扩容，是 EMPTY_ELEMENTDATA 就从0开始扩容
         if (minCapacity > minExpand) {
             ensureExplicitCapacity(minCapacity);
         }
     }
 
     private static int calculateCapacity(Object[] elementData, int minCapacity) {
-        //空数组，
+        //空数组，这里直接扩容成10
         if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
             return Math.max(DEFAULT_CAPACITY, minCapacity);
         }

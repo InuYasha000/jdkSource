@@ -277,8 +277,11 @@ public class RandomAccessFile implements DataOutput, DataInput, Closeable {
      * @spec JSR-51
      */
     public final FileChannel getChannel() {
+        //线程安全
         synchronized (this) {
             if (channel == null) {
+                //文件路径
+                //rw:文件支持的读写
                 channel = FileChannelImpl.open(fd, path, true, rw, this);
             }
             return channel;

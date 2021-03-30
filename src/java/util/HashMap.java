@@ -350,7 +350,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     static final int hash(Object key) {
         int h;
-        //hash值右移16位，这样就截断了低16位
+        //hash值右移16位，这样就截断了低16位,在这里看出来null可以储存，并且是放在0的
         return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
