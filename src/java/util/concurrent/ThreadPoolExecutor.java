@@ -400,7 +400,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
     //000
     private static final int SHUTDOWN   =  0 << COUNT_BITS;//不允许提交新的任务（因为中断了所有空闲线程），但是会处理完已提交的任务
     //001
-    private static final int STOP       =  1 << COUNT_BITS;//不允许提交新的任务，也不会处理阻塞队列中未执行的任务，并设置正在执行的线程的中断标志位
+    private static final int STOP       =  1 << COUNT_BITS;//不允许提交新的任务，也不会处理阻塞队列中未执行的任务，并设置正在执行的线程的中断标志位,也就是中断正在处理的任务
     //010
     private static final int TIDYING    =  2 << COUNT_BITS;//所有任务执行完毕，池中工作的线程数为0，等待执行terminated()勾子方法
     //011
@@ -495,6 +495,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      */
     //shutdown和shutdownNow方法中会使用workers完成对所有线程的遍历,可以看成线程池中所有的线程,获取也全部加锁
     //这个就代表线程池里面所有的工作线程，获取必须加锁，在这个里面的线程都是启动成功的，启动不成功的线程会被remove掉
+    //所有对workers的操作都加了锁，ReentrantLock
     private final HashSet<Worker> workers = new HashSet<Worker>();
 
     /**
@@ -755,14 +756,21 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * allow access from ScheduledThreadPoolExecutor.
      */
     //shutdown并且队列空或stop并且队列空
-    final void tryTerminate() {
+    final void tryTerminate() { 
         for (;;) {
             int c = ctl.get();
+            // 线程池处于Running状态
+            // 线程池已经终止了
+            // 线程池处于ShutDown状态，但是阻塞队列不为空
             if (isRunning(c) ||
                 runStateAtLeast(c, TIDYING) ||
                 (runStateOf(c) == SHUTDOWN && ! workQueue.isEmpty()))
                 return;
+            // 执行到这里，就意味着线程池要么处于STOP状态，要么处于SHUTDOWN且阻塞队列为空
+            // 这时如果线程池中还存在线程，则会尝试中断线程
             if (workerCountOf(c) != 0) { // Eligible to terminate
+                // /线程池还有线程，但是队列没有任务了，需要中断唤醒等待任务的线程
+                // （runwoker的时候首先就通过w.unlock设置线程可中断，getTask最后面的catch处理中断）
                 interruptIdleWorkers(ONLY_ONE);
                 return;
             }
@@ -770,10 +778,13 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
             final ReentrantLock mainLock = this.mainLock;
             mainLock.lock();
             try {
+                // 尝试终止线程池
                 if (ctl.compareAndSet(c, ctlOf(TIDYING, 0))) {
                     try {
+                        //执行terminated()勾子方法
                         terminated();
                     } finally {
+                        // 线程池状态转为TERMINATED
                         ctl.set(ctlOf(TERMINATED, 0));
                         termination.signalAll();
                     }
@@ -1003,7 +1014,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
 
         //增加线程数后添加线程任务到workers
         boolean workerStarted = false;//线程启动标识
-        //添加成功标识
+        //添加成功标识,便于后面启动线程
         boolean workerAdded = false;
         //这个就是工作线程，负责执行提交的润难了，也就是firstTask
         Worker w = null;
@@ -1079,6 +1090,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @param completedAbruptly if the worker died due to user exception
      */
     private void processWorkerExit(Worker w, boolean completedAbruptly) {
+        // true：用户线程运行异常,需要扣减
+        // false：getTask方法中扣减线程数量
         if (completedAbruptly) // If abrupt, then workerCount wasn't adjusted
             decrementWorkerCount();
 
@@ -1095,6 +1108,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         tryTerminate();
 
         int c = ctl.get();
+        //这里的逻辑就是阻塞队列没空，但是线程数不够了，所以需要添加空任务线程来加快线程从阻塞队列取数据执行
         if (runStateLessThan(c, STOP)) {//线程是running和shutdown
             if (!completedAbruptly) {
                 int min = allowCoreThreadTimeOut ? 0 : corePoolSize;

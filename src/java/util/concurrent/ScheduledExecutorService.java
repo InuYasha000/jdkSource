@@ -107,6 +107,7 @@ public interface ScheduledExecutorService extends ExecutorService {
      *         scheduled for execution
      * @throws NullPointerException if command is null
      */
+    // 创建并执行在给定延迟后启用的 ScheduledFuture。
     public ScheduledFuture<?> schedule(Runnable command,
                                        long delay, TimeUnit unit);
 
@@ -123,6 +124,7 @@ public interface ScheduledExecutorService extends ExecutorService {
      *         scheduled for execution
      * @throws NullPointerException if callable is null
      */
+    // 创建并执行在给定延迟后启用的一次性操作。
     public <V> ScheduledFuture<V> schedule(Callable<V> callable,
                                            long delay, TimeUnit unit);
 
@@ -151,6 +153,8 @@ public interface ScheduledExecutorService extends ExecutorService {
      * @throws NullPointerException if command is null
      * @throws IllegalArgumentException if period less than or equal to zero
      */
+    // 创建并执行一个在给定初始延迟后首次启用的定期操作，后续操作具有给定的周期；
+    //也就是将在 initialDelay 后开始执行，然后在 initialDelay+period 后执行，接着在 initialDelay + 2 * period 后执行，依此类推。
     public ScheduledFuture<?> scheduleAtFixedRate(Runnable command,
                                                   long initialDelay,
                                                   long period,
@@ -178,6 +182,7 @@ public interface ScheduledExecutorService extends ExecutorService {
      * @throws NullPointerException if command is null
      * @throws IllegalArgumentException if delay less than or equal to zero
      */
+    // 创建并执行一个在给定初始延迟后首次启用的定期操作，随后，在每一次执行终止和下一次执行开始之间都存在给定的延迟。
     public ScheduledFuture<?> scheduleWithFixedDelay(Runnable command,
                                                      long initialDelay,
                                                      long delay,

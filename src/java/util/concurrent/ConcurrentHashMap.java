@@ -2317,6 +2317,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
             !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
             CounterCell a; long v; int m;
             boolean uncontended = true;
+            //其实为了提高高并发的时候baseCount可见性的失败问题，又避免一直重试，JDK 8 引入了类Striped64,其中LongAdder和DoubleAdder都是基于该类实现的，
+            // 而CounterCell也是基于Striped64实现的。如果counterCells ！= null，且uncontended = U.compareAndSwapLong(a, CELLVALUE, v = a.value, v + x)也失败了，同样会调用fullAddCount()方法
             if (as == null || (m = as.length - 1) < 0 ||
                 (a = as[ThreadLocalRandom.getProbe() & m]) == null ||
                 !(uncontended =
@@ -2328,6 +2330,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
                 return;
             s = sumCount();
         }
+        //检查扩容
         if (check >= 0) {
             Node<K,V>[] tab, nt; int n, sc;
             while (s >= (long)(sc = sizeCtl) && (tab = table) != null &&
