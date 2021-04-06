@@ -179,6 +179,7 @@ public class CountDownLatch {
             // Decrement count; signal when transition to zero
             for (;;) {
                 int c = getState();
+                //这里其实是为了在第一轮循环后state为0也就是countdownlatch没用了防止再次调用countDown方法，这里使它失效，上面的await方法也做了这个校验
                 if (c == 0)
                     return false;
                 int nextc = c-1;
