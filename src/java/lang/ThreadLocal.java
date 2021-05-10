@@ -160,7 +160,7 @@ public class ThreadLocal<T> {
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
         if (map != null) {
-            ThreadLocalMap.Entry e = map.getEntry(this);
+                ThreadLocalMap.Entry e = map.getEntry(this);
             if (e != null) {
                 @SuppressWarnings("unchecked")
                 T result = (T)e.value;
@@ -463,24 +463,44 @@ public class ThreadLocal<T> {
             int len = tab.length;
             int i = key.threadLocalHashCode & (len-1);
 
+            /**
+             * 根据获取到的索引进行循环，如果当前索引上的table[i]不为空，在没有return的情况下，
+             * 就使用nextIndex()获取下一个（上面提到到线性探测法）。
+             * 线性探测法的地址增量di = 1, 2, ... , m-1，其中，i为探测次数。该方法一次探测下一个地址，直到有空的地址后插入，
+             * 若整个空间都找不到空余的地址，则产生溢出。假设当前table长度为16，也就是说如果计算出来key的hash值为14，如果table[14]上已经有值，并且其key与当前key不一致，
+             * 那么就发生了hash冲突，这个时候将14加1得到15，取table[15]进行判断，这个时候如果还是冲突会回到0，取table[0],以此类推，直到可以插入。
+             */
             for (Entry e = tab[i];
                  e != null;
                  e = tab[i = nextIndex(i, len)]) {
                 ThreadLocal<?> k = e.get();
 
+                //table[i]上key不为空，并且和当前key相同，更新value
                 if (k == key) {
                     e.value = value;
                     return;
                 }
 
+                /**
+                 * table[i]上的key为空，说明被回收了（上面的弱引用中提到过）。
+                 * 这个时候说明改table[i]可以重新使用，用新的key-value将其替换,并删除其他无效的entry
+                 */
                 if (k == null) {
+                    //替换无效entry
+                    //以 index=i 位起点开始遍历，进行探测式数据清理工作
                     replaceStaleEntry(key, value, i);
                     return;
                 }
             }
 
+            //找到为空的插入位置，插入值，在为空的位置插入需要对size进行加1操作
             tab[i] = new Entry(key, value);
             int sz = ++size;
+            /**
+             * cleanSomeSlots用于清除那些e.get()==null，也就是table[index] != null && table[index].get()==null
+             * 之前提到过，这种数据key关联的对象已经被回收，所以这个Entry(table[index])可以被置null。
+             * 如果没有清除任何entry,并且当前使用量达到了负载因子所定义(长度的2/3)，那么进行rehash()
+             */
             if (!cleanSomeSlots(i, sz) && sz >= threshold)
                 rehash();
         }
@@ -528,15 +548,24 @@ public class ThreadLocal<T> {
             // We clean out whole runs at a time to avoid continual
             // incremental rehashing due to garbage collector freeing
             // up refs in bunches (i.e., whenever the collector runs).
-            int slotToExpunge = staleSlot;
+            /**
+             * 根据传入的无效entry的位置（staleSlot）,向前扫描
+             * 一段连续的entry(这里的连续是指一段相邻的entry并且table[i] != null),
+             * 直到找到一个无效entry，或者扫描完也没找到
+             */
+            //用来判断当前 过期槽位staleSlot 之前是否还有过期元素
+            int slotToExpunge = staleSlot;//之后用于清理的起点
             for (int i = prevIndex(staleSlot, len);
-                 (e = tab[i]) != null;
+                 (e = tab[i]) != null;//碰到null则结束探测
                  i = prevIndex(i, len))
                 if (e.get() == null)
-                    slotToExpunge = i;
+                    slotToExpunge = i;//过期槽位
 
             // Find either the key or trailing null slot of run, whichever
             // occurs first
+            /**
+             * 向后扫描一段连续的entry
+             */
             for (int i = nextIndex(staleSlot, len);
                  (e = tab[i]) != null;
                  i = nextIndex(i, len)) {
@@ -547,6 +576,9 @@ public class ThreadLocal<T> {
                 // The newly stale slot, or any other stale slot
                 // encountered above it, can then be sent to expungeStaleEntry
                 // to remove or rehash all of the other entries in run.
+                /**
+                 * 如果找到了key，将其与传入的无效entry替换，也就是与table[staleSlot]进行替换
+                 */
                 if (k == key) {
                     e.value = value;
 
@@ -554,6 +586,7 @@ public class ThreadLocal<T> {
                     tab[staleSlot] = e;
 
                     // Start expunge at preceding stale entry if it exists
+                    //如果向前查找没有找到无效entry，则更新slotToExpunge为当前值i
                     if (slotToExpunge == staleSlot)
                         slotToExpunge = i;
                     cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
@@ -563,15 +596,25 @@ public class ThreadLocal<T> {
                 // If we didn't find stale entry on backward scan, the
                 // first stale entry seen while scanning for key is the
                 // first still present in the run.
+                /**
+                 * 如果向前查找没有找到无效entry，并且当前向后扫描的entry无效，则更新slotToExpunge为当前值i
+                 */
                 if (k == null && slotToExpunge == staleSlot)
                     slotToExpunge = i;
             }
 
             // If key not found, put new entry in stale slot
+            /**
+             * 如果没有找到key,也就是说key之前不存在table中
+             * 就直接最开始的无效entry——tab[staleSlot]上直接新增即可
+             */
             tab[staleSlot].value = null;
             tab[staleSlot] = new Entry(key, value);
 
             // If there are any other stale entries in run, expunge them
+            /**
+             * slotToExpunge != staleSlot,说明存在其他的无效entry需要进行清理。
+             */
             if (slotToExpunge != staleSlot)
                 cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
         }
