@@ -597,6 +597,9 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      */
     //池中允许的最大线程数,如果使用了无界的任务队列这个参数就没什么效果
     //因为如果队列满了，并且已创建的线程数小于最大线程数，则线程池会再创建新的线程执行任务。但是无界队列不会满
+//     if (maximumPoolSize <= 0 || maximumPoolSize < corePoolSize)
+//            throw new IllegalArgumentException();
+    //这个数不会小于等于0，也不能小于核心线程数
     private volatile int maximumPoolSize;
 
     /**
@@ -1177,7 +1180,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              *  获取任务发生了超时.其实就是体现了空闲线程的存活时间
              */
             if ((wc > maximumPoolSize || (timed && timedOut))
-                && (wc > 1 || workQueue.isEmpty())) {
+                && (wc > 1 || workQueue.isEmpty())) {//并且是队列空了,队列空就代表线程空闲
                 if (compareAndDecrementWorkerCount(c))
                     return null;
                 continue;
@@ -1196,7 +1199,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
                     return r;
                 //走到这里来就表示r=null，也就是当前线程在 keepAliveTime 时间内还是没有从workQueue拿到任务，
                 //其实就是表达了空闲时间已经超过了 keepAliveTime 时间，因此表示超时
-                timedOut = true;
+                timedOut = true;//这里为true了，下一轮可能就返回null了。
             } catch (InterruptedException retry) {
                 timedOut = false;
             }
@@ -1262,7 +1265,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
              * 那什么时候task为空了？第一是本来addWorker就会添加空task的任务，其二，这个方法本来就在线程的run方法里面
              * 所以线程一个线程在执行完自身任务后，此时task=null，所以之后就执行 task = getTask() ,getTask就是去阻塞队列获取值
              */
-            while (task != null || (task = getTask()) != null) {//task为null时反复从阻塞队列取值
+            while (task != null || (task = getTask()) != null) {//task为null时从阻塞队列取值,这也是为了传进来一个task为null的最根本原因就在这
                 w.lock();
                 // If pool is stopping, ensure thread is interrupted;
                 // if not, ensure thread is not interrupted.  This

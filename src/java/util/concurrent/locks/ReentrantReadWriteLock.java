@@ -446,7 +446,7 @@ public class ReentrantReadWriteLock
             //返回写锁状态,w是低16位，c的值由读和写共同决定
             // w -- write ， r -- read
             int w = exclusiveCount(c);
-            if (c != 0) {//表示有锁
+            if (c != 0) {//表示有锁（读写都有可能）
                 // (Note: if c != 0 and w == 0 then shared count != 0)
                 //没有写锁但有读锁存在  或者  当前有写锁并且锁线程不是当前线程
                 if (w == 0 || current != getExclusiveOwnerThread())
@@ -535,7 +535,7 @@ public class ReentrantReadWriteLock
             //也就是说读写不一定互斥
             if (exclusiveCount(c) != 0 &&
                 getExclusiveOwnerThread() != current)
-                return -1;//获取锁失败，在外面其实是去执行一个等待排队的效果，不需要太关注
+                return -1;//获取锁失败，在外面其实是去执行一个等待排队的效果
             //读锁值
             int r = sharedCount(c);
             /*
@@ -543,11 +543,10 @@ public class ReentrantReadWriteLock
              * 如果是公平锁则只要有等待节点且等待节点不是当前线程需要等待不可以尝试获取锁
              * 如果为非公平锁，则只需要当前第一个等待节点不是写锁就可以尝试获取锁（考虑第一点为写锁主要为了方式写锁“饿死”）
              * 也就是等待队列中第一个等待线程是获取写锁，那么该读线程应该阻塞
-             * 这里写的是真瘠薄绕
              * r < MAX_COUNT：持有线程小于最大数（65535）
              * compareAndSetState(c, c + SHARED_UNIT)：设置读取锁状态
              */
-            if (!readerShouldBlock() &&
+            if (!readerShouldBlock() &&//公平锁排队逻辑是看有没有人排队，非公平锁是否排队逻辑是否等待的第一个节点是写锁在排队，有写锁在排队就别排了
                 r < MAX_COUNT &&
                 compareAndSetState(c, c + SHARED_UNIT)) {
                 if (r == 0) {
@@ -566,7 +565,7 @@ public class ReentrantReadWriteLock
                         readHolds.set(rh);
                     rh.count++;
                 }
-                return 1;
+                return 1;//获取锁了
             }
             //能够走到这里来表示多个线程只有一个获取锁成功，其它获取失败在这里再次获取
             return fullTryAcquireShared(current);
@@ -595,13 +594,13 @@ public class ReentrantReadWriteLock
                     // else we hold the exclusive lock; blocking here
                     // would cause deadlock.
                     //读锁需要阻塞
-                } else if (readerShouldBlock()) {
+                } else if (readerShouldBlock()) {//能走到这里表示没有写锁，并且排队里面写锁在排队
                     // Make sure we're not acquiring read lock reentrantly
                     //列头为当前线程
                     if (firstReader == current) {
                         // assert firstReaderHoldCount > 0;
                     } else {
-                        if (rh == null) {
+                        if (rh == null) {//这里逻辑就是看一下自己的重入次数是否大于0，不是大于0，直接返回。
                             rh = cachedHoldCounter;
                             if (rh == null || rh.tid != getThreadId(current)) {
                                 rh = readHolds.get();
@@ -613,6 +612,10 @@ public class ReentrantReadWriteLock
                             return -1;
                     }
                 }
+                //能走到这里表示不存在这么两种情况：
+                //1:当前有写锁并且不是自己
+                //2:自己的重入次数不是0
+
                 //读锁超出最大范围
                 if (sharedCount(c) == MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");

@@ -720,7 +720,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     final Node<K,V>[] resize() {
         Node<K,V>[] oldTab = table;//旧数组
         int oldCap = (oldTab == null) ? 0 : oldTab.length;//旧数组的容量
-        int oldThr = threshold;//旧的扩容阙值
+        int oldThr = threshold;//旧的扩容阙值,但其实在这里也是容量值
         //新的容量值和新的扩容阈值
         int newCap, newThr = 0;
         if (oldCap > 0) {//代表不是第一次插入数据，下面两种情况其实是从0开始扩容
@@ -738,7 +738,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
          */
         else if (oldThr > 0) // initial capacity was placed in threshold
             newCap = oldThr;
-        //使用过默认构造函数会走到这一步
+        //使用过默认构造函数会走到这一步，也就是new HashMap<>();
         else {               // zero initial threshold signifies using defaults
             newCap = DEFAULT_INITIAL_CAPACITY;
             newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);

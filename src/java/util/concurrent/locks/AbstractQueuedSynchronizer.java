@@ -676,7 +676,7 @@ public abstract class AbstractQueuedSynchronizer
             s = null;
             for (Node t = tail; t != null && t != node; t = t.prev)
                 if (t.waitStatus <= 0)
-                    s = t;
+                    s = t;//会一直向前找
         }
         //唤醒处于队头后面的元素
         if (s != null)
@@ -2145,7 +2145,7 @@ public abstract class AbstractQueuedSynchronizer
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
                     break;
             }
-            //竞争同步状态
+            //竞争同步状态,走到这里表示此节点在等待队列，所以阻塞自己直到获取锁
             if (acquireQueued(node, savedState) && interruptMode != THROW_IE)
                 interruptMode = REINTERRUPT;
             //清理下条件队列中的不是在等待条件的节点
